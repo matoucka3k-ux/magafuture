@@ -1,0 +1,200 @@
+// pages/product/[id].js
+import { useState } from "react";
+import Head from "next/head";
+import Link from "next/link";
+import { useRouter } from "next/router";
+import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
+import { products, getProductById } from "../../lib/products";
+import { useCart } from "../../lib/CartContext";
+import styles from "./product.module.css";
+
+export async function getStaticPaths() {
+  return {
+    paths: products.map((p) => ({ params: { id: p.id } })),
+    fallback: false,
+  };
+}
+
+export async function getStaticProps({ params }) {
+  const product = getProductById(params.id);
+  if (!product) return { notFound: true };
+  return { props: { product } };
+}
+
+export default function ProductPage({ product }) {
+  const { addItem } = useCart();
+  const router = useRouter();
+  const [selectedSize, setSelectedSize] = useState(
+    product.sizes.length === 1 ? product.sizes[0] : null
+  );
+  const [selectedColor, setSelectedColor] = useState(product.colors[0]);
+  const [qty, setQty] = useState(1);
+  const [added, setAdded] = useState(false);
+  const [error, setError] = useState("");
+
+  const related = products.filter(
+    (p) => p.id !== product.id && p.category === product.category
+  ).slice(0, 3);
+
+  function handleAddToCart() {
+    if (!selectedSize) {
+      setError("Please select a size.");
+      return;
+    }
+    setError("");
+    addItem(product, selectedSize, selectedColor, qty);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 2000);
+  }
+
+  return (
+    <>
+      <Head>
+        <title>{product.name} — MAGA Premium Essentials</title>
+        <meta name="description" content={product.description} />
+      </Head>
+
+      <Navbar />
+
+      <div className={styles.breadcrumb}>
+        <Link href="/">Home</Link>
+        <span>/</span>
+        <Link href="/shop">Shop</Link>
+        <span>/</span>
+        <span>{product.name}</span>
+      </div>
+
+      <main className={styles.main}>
+        {/* Visual */}
+        <div className={styles.visual}>
+          {product.badge && (
+            <span className={styles.badge}>{product.badge}</span>
+          )}
+          <div className={styles.emojiWrap}>
+            <span className={styles.emoji}>{product.emoji}</span>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className={styles.info}>
+          <div className={styles.categoryTag}>{product.category}</div>
+          <h1 className={styles.title}>{product.name}</h1>
+          <p className={styles.subtitle}>{product.subtitle}</p>
+          <div className={styles.price}>€{product.price.toFixed(2)}</div>
+          <p className={styles.desc}>{product.description}</p>
+
+          {/* Color */}
+          <div className={styles.optionGroup}>
+            <div className={styles.optionLabel}>
+              Color: <span className={styles.optionValue}>{selectedColor}</span>
+            </div>
+            <div className={styles.colorOptions}>
+              {product.colors.map((c) => (
+                <button
+                  key={c}
+                  className={`${styles.colorBtn} ${selectedColor === c ? styles.selectedColor : ""}`}
+                  onClick={() => setSelectedColor(c)}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Size */}
+          {product.sizes.length > 1 && (
+            <div className={styles.optionGroup}>
+              <div className={styles.optionLabel}>
+                Size:{" "}
+                {selectedSize ? (
+                  <span className={styles.optionValue}>{selectedSize}</span>
+                ) : (
+                  <span className={styles.optionPlaceholder}>Select a size</span>
+                )}
+              </div>
+              <div className={styles.sizeOptions}>
+                {product.sizes.map((s) => (
+                  <button
+                    key={s}
+                    className={`${styles.sizeBtn} ${selectedSize === s ? styles.selectedSize : ""}`}
+                    onClick={() => { setSelectedSize(s); setError(""); }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Qty */}
+          <div className={styles.optionGroup}>
+            <div className={styles.optionLabel}>Quantity</div>
+            <div className={styles.qtyControl}>
+              <button
+                className={styles.qtyBtn}
+                onClick={() => setQty(Math.max(1, qty - 1))}
+                aria-label="Decrease quantity"
+              >−</button>
+              <span className={styles.qtyNum}>{qty}</span>
+              <button
+                className={styles.qtyBtn}
+                onClick={() => setQty(qty + 1)}
+                aria-label="Increase quantity"
+              >+</button>
+            </div>
+          </div>
+
+          {error && <p className={styles.error}>{error}</p>}
+
+          {/* CTAs */}
+          <div className={styles.ctas}>
+            <button
+              className={`${styles.addBtn} ${added ? styles.addedBtn : ""}`}
+              onClick={handleAddToCart}
+            >
+              {added ? "✓ Added to Cart!" : "Add to Cart"}
+            </button>
+            <button
+              className={styles.buyBtn}
+              onClick={() => {
+                if (!selectedSize) { setError("Please select a size."); return; }
+                addItem(product, selectedSize, selectedColor, qty);
+                router.push("/cart");
+              }}
+            >
+              Buy Now
+            </button>
+          </div>
+
+          {/* Trust badges */}
+          <div className={styles.trust}>
+            <span>🔒 Secure checkout via PayPal</span>
+            <span>✈️ Ships worldwide</span>
+            <span>♻️ Organic materials</span>
+          </div>
+        </div>
+      </main>
+
+      {/* Related */}
+      {related.length > 0 && (
+        <section className={styles.related}>
+          <h2 className={styles.relatedTitle}>You might also like</h2>
+          <div className={styles.relatedGrid}>
+            {related.map((p) => (
+              <Link key={p.id} href={`/product/${p.id}`} className={styles.relatedCard}>
+                <span className={styles.relatedEmoji}>{p.emoji}</span>
+                <div>
+                  <div className={styles.relatedName}>{p.name}</div>
+                  <div className={styles.relatedPrice}>€{p.price.toFixed(2)}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <Footer />
+    </>
+  );
+}
